@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video Studio Web</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;max-width:1080px;margin:20px auto;padding:0 16px}
+    textarea,input,select,button{width:100%;margin:6px 0;padding:10px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .card{border:1px solid #ddd;padding:12px;border-radius:8px;margin-bottom:12px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+    img{max-width:100%}
+    code{white-space:pre-wrap;display:block;background:#111;color:#0f0;padding:8px;border-radius:6px}
+  </style>
+</head>
+<body>
+  <h1>网页视频生产台（Sora2 / 即梦风格兼容）</h1>
+
+  <div class="card">
+    <h3>1) API 配置</h3>
+    <input id="baseUrl" placeholder="Base URL (例如 https://api.xxx.com/v1)" />
+    <input id="apiKey" placeholder="API Key" />
+    <input id="model" placeholder="模型名 (如 sora2 / jimeng-video)" />
+  </div>
+
+  <div class="card">
+    <h3>2) 生成九镜头</h3>
+    <textarea id="script" rows="6" placeholder="输入剧本/剧情概述"></textarea>
+    <input id="styleHint" placeholder="风格参考（可选）" />
+    <button onclick="generateStoryboard()">生成九镜头</button>
+    <textarea id="storyboard" rows="12" placeholder="镜头01...镜头09..."></textarea>
+  </div>
+
+  <div class="card">
+    <h3>3) 生成九宫格提示词</h3>
+    <input id="summary" placeholder="剧情概述或画面主题" />
+    <button onclick="buildGridPrompt()">生成九宫格Prompt</button>
+    <textarea id="gridPrompt" rows="10"></textarea>
+  </div>
+
+  <div class="card">
+    <h3>4) 九宫格切图</h3>
+    <input type="file" id="gridImage" accept="image/*" />
+    <button onclick="splitGrid()">切成9张图</button>
+    <div id="pieces" class="grid"></div>
+  </div>
+
+  <div class="card">
+    <h3>5) 生成视频请求</h3>
+    <textarea id="roleCard" rows="4" placeholder="@角色卡（可选）"></textarea>
+    <button onclick="generateVideo()">调用视频API</button>
+    <code id="videoResult"></code>
+  </div>
+
+  <div class="card">
+    <h3>工具：服务台 Token 组装 curl</h3>
+    <input id="sid" value="7528261067762778116" />
+    <input id="stoken" value="ht-d98cbf61-cb2d-4eb9-03c7-7838fd700f94" />
+    <button onclick="buildCurl()">生成curl</button>
+    <code id="curlOut"></code>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
