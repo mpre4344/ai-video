@@ -3,9 +3,11 @@ const LS_KEY='ai_video_studio_cfg_v1';
 function loadCfg(){
   const raw=localStorage.getItem(LS_KEY);
   const cfg=raw?JSON.parse(raw):{};
-  ['baseUrl','apiKey','chatModel','videoModel'].forEach(k=>{
+  ['baseUrl','apiKey','chatModel','videoModel','imageModel'].forEach(k=>{
     const el=document.getElementById(k); if(el) el.value=cfg[k]||'';
   });
+  const providerEl=document.getElementById('imageProvider');
+  if(providerEl) providerEl.value=cfg.imageProvider||'openai';
   return cfg;
 }
 
@@ -15,6 +17,8 @@ function getCfg(){
     apiKey:document.getElementById('apiKey').value.trim(),
     chatModel:document.getElementById('chatModel').value.trim(),
     videoModel:document.getElementById('videoModel').value.trim(),
+    imageProvider:document.getElementById('imageProvider').value,
+    imageModel:document.getElementById('imageModel').value.trim(),
   };
 }
 
@@ -74,6 +78,42 @@ window.splitGrid=async()=>{
     const a=document.createElement('a'); a.href=url; a.download=`panel_${r*3+c+1}.png`;
     const im=document.createElement('img'); im.src=url; a.appendChild(im); wrap.appendChild(a);
   }
+};
+
+window.generateImage=async()=>{
+  try{
+    const {baseUrl,apiKey,imageProvider,imageModel}=getCfg();
+    const prompt=document.getElementById('imagePrompt').value.trim() || document.getElementById('gridPrompt').value.trim();
+    if(!baseUrl||!apiKey||!imageModel) throw new Error('请先配置 BaseURL/APIKey/ImageModel');
+    if(!prompt) throw new Error('请先填写图片提示词');
+
+    let imageUrl='';
+    if(imageProvider==='openai'){
+      const r=await fetch(`${baseUrl}/images/generations`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+        body:JSON.stringify({model:imageModel,prompt,size:'1792x1024'})
+      });
+      if(!r.ok) throw new Error(`openai image ${r.status}: ${await r.text()}`);
+      const data=await r.json();
+      imageUrl = data?.data?.[0]?.url || (data?.data?.[0]?.b64_json ? `data:image/png;base64,${data.data[0].b64_json}` : '');
+    }else if(imageProvider==='gemini'){
+      const endpoint=`${baseUrl}/models/${encodeURIComponent(imageModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const body={
+        contents:[{parts:[{text:prompt}]}],
+        generationConfig:{responseModalities:['TEXT','IMAGE']}
+      };
+      const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!r.ok) throw new Error(`gemini image ${r.status}: ${await r.text()}`);
+      const data=await r.json();
+      const parts=data?.candidates?.[0]?.content?.parts||[];
+      const inline=parts.find(p=>p.inlineData?.data)?.inlineData?.data;
+      if(inline) imageUrl=`data:image/png;base64,${inline}`;
+    }
+
+    if(!imageUrl) throw new Error('未从响应中解析到图片，请检查模型是否支持图片输出');
+    document.getElementById('imageOut').innerHTML=`<img src="${imageUrl}" alt="generated"/>`;
+  }catch(e){alert(e.message||String(e));}
 };
 
 window.generateVideo=async()=>{

@@ -24,6 +24,11 @@
     <input id="apiKey" placeholder="API Key"/>
     <input id="chatModel" placeholder="分镜模型，例如 gpt-4.1 / qwen / glm"/>
     <input id="videoModel" placeholder="视频模型，例如 sora2 / jimeng-video"/>
+    <select id="imageProvider">
+      <option value="openai">图片供应商：OpenAI兼容</option>
+      <option value="gemini">图片供应商：Gemini</option>
+    </select>
+    <input id="imageModel" placeholder="图片模型，例如 gpt-image-1 / gemini-2.0-flash-preview-image-generation"/>
     <button onclick="saveCfg()">保存配置</button>
   </div>
 
@@ -43,14 +48,21 @@
   </div>
 
   <div class="card">
-    <h3>4) 九宫格切图（浏览器本地处理）</h3>
+    <h3>4) 生成九宫格图片（OpenAI/Gemini 二选一）</h3>
+    <textarea id="imagePrompt" rows="6" placeholder="可粘贴上面的九宫格 Prompt"></textarea>
+    <button onclick="generateImage()">生成图片</button>
+    <div id="imageOut"></div>
+  </div>
+
+  <div class="card">
+    <h3>5) 九宫格切图（浏览器本地处理）</h3>
     <input type="file" id="gridImage" accept="image/*"/>
     <button onclick="splitGrid()">切成9张图（可下载）</button>
     <div id="pieces" class="grid"></div>
   </div>
 
   <div class="card">
-    <h3>5) 生成视频请求</h3>
+    <h3>6) 生成视频请求</h3>
     <textarea id="roleCard" rows="3" placeholder="@角色卡（可选）"></textarea>
     <button onclick="generateVideo()">调用视频生成接口</button>
     <code id="videoResult"></code>
