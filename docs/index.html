@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Video Studio (GitHub Pages)</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;max-width:1100px;margin:20px auto;padding:0 12px}
+    .card{border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:12px}
+    input,textarea,button,select{width:100%;padding:10px;margin:6px 0;box-sizing:border-box}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+    img{max-width:100%;display:block}
+    code{display:block;white-space:pre-wrap;background:#111;color:#0f0;padding:8px;border-radius:6px}
+  </style>
+</head>
+<body>
+  <h1>AI Video Studio（纯前端 / GitHub Pages）</h1>
+  <p>只要配置 BaseURL + API Key + 模型，即可在网页端完成分镜→九宫格→视频提示词链路。</p>
+
+  <div class="card">
+    <h3>1) API配置（仅保存在浏览器 localStorage）</h3>
+    <input id="baseUrl" placeholder="Base URL，例如 https://api.openai.com/v1"/>
+    <input id="apiKey" placeholder="API Key"/>
+    <input id="chatModel" placeholder="分镜模型，例如 gpt-4.1 / qwen / glm"/>
+    <input id="videoModel" placeholder="视频模型，例如 sora2 / jimeng-video"/>
+    <button onclick="saveCfg()">保存配置</button>
+  </div>
+
+  <div class="card">
+    <h3>2) 剧本生成九镜头分镜</h3>
+    <textarea id="script" rows="6" placeholder="输入剧情概述"></textarea>
+    <input id="styleHint" placeholder="风格参考（可选）"/>
+    <button onclick="generateStoryboard()">生成九镜头</button>
+    <textarea id="storyboard" rows="12" placeholder="镜头01：... 到 镜头09：..."></textarea>
+  </div>
+
+  <div class="card">
+    <h3>3) 九宫格 Prompt 组装</h3>
+    <input id="summary" placeholder="剧情概述或画面主题"/>
+    <button onclick="buildGridPrompt()">生成九宫格 Prompt</button>
+    <textarea id="gridPrompt" rows="10"></textarea>
+  </div>
+
+  <div class="card">
+    <h3>4) 九宫格切图（浏览器本地处理）</h3>
+    <input type="file" id="gridImage" accept="image/*"/>
+    <button onclick="splitGrid()">切成9张图（可下载）</button>
+    <div id="pieces" class="grid"></div>
+  </div>
+
+  <div class="card">
+    <h3>5) 生成视频请求</h3>
+    <textarea id="roleCard" rows="3" placeholder="@角色卡（可选）"></textarea>
+    <button onclick="generateVideo()">调用视频生成接口</button>
+    <code id="videoResult"></code>
+  </div>
+
+  <div class="card">
+    <h3>工具：服务台 ID/Token → curl</h3>
+    <input id="sid" value="7528261067762778116"/>
+    <input id="stoken" value="ht-d98cbf61-cb2d-4eb9-03c7-7838fd700f94"/>
+    <button onclick="buildCurl()">生成 curl</button>
+    <code id="curlOut"></code>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
