@@ -158,33 +158,79 @@ function detectGridCuts(img){
   return {xCuts,yCuts,detected:true};
 }
 
-window.splitGrid=async()=>{
+async function loadGridImage(){
   const f=document.getElementById('gridImage').files?.[0];
-  if(!f) return alert('先上传九宫格图片');
-  const img=new Image(); img.src=URL.createObjectURL(f); await img.decode();
+  if(!f) throw new Error('先上传九宫格图片');
+  const img=new Image();
+  img.src=URL.createObjectURL(f);
+  await img.decode();
+  return img;
+}
 
-  const {xCuts,yCuts,detected}=detectGridCuts(img);
-  const wrap=document.getElementById('pieces');
-  wrap.innerHTML='';
+window.previewGridBounds=async()=>{
+  try{
+    const img=await loadGridImage();
+    const {xCuts,yCuts,detected}=detectGridCuts(img);
 
-  for(let r=0;r<3;r++) for(let c=0;c<3;c++){
-    const sx=xCuts[c], sy=yCuts[r];
-    const sw=xCuts[c+1]-xCuts[c], sh=yCuts[r+1]-yCuts[r];
+    const maxW=900;
+    const scale=Math.min(1,maxW/img.width);
+    const vw=Math.round(img.width*scale);
+    const vh=Math.round(img.height*scale);
 
     const cv=document.createElement('canvas');
-    cv.width=sw; cv.height=sh;
-    cv.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,sw,sh);
+    cv.width=vw; cv.height=vh;
+    const ctx=cv.getContext('2d');
+    ctx.drawImage(img,0,0,vw,vh);
 
-    const url=cv.toDataURL('image/png');
-    const a=document.createElement('a');
-    a.href=url;
-    a.download=`panel_${r*3+c+1}.png`;
-    const im=document.createElement('img');
-    im.src=url;
-    im.title=`${detected?'智能边界':'均分回退'}: x=${sx}-${sx+sw}, y=${sy}-${sy+sh}`;
-    a.appendChild(im);
-    wrap.appendChild(a);
-  }
+    // 边界线
+    ctx.lineWidth=2;
+    ctx.strokeStyle=detected?'#00e676':'#ff9800';
+    for(let i=1;i<=2;i++){
+      const x=Math.round(xCuts[i]*scale)+0.5;
+      const y=Math.round(yCuts[i]*scale)+0.5;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,vh); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(vw,y); ctx.stroke();
+    }
+
+    // 标签
+    ctx.fillStyle='rgba(0,0,0,0.65)';
+    ctx.fillRect(8,8,220,28);
+    ctx.fillStyle='#fff';
+    ctx.font='14px Arial';
+    ctx.fillText(detected?'智能边界识别':'均分回退（识别不稳定）',14,27);
+
+    const box=document.getElementById('gridPreview');
+    box.innerHTML='';
+    box.appendChild(cv);
+  }catch(e){ alert(e.message||String(e)); }
+};
+
+window.splitGrid=async()=>{
+  try{
+    const img=await loadGridImage();
+    const {xCuts,yCuts,detected}=detectGridCuts(img);
+    const wrap=document.getElementById('pieces');
+    wrap.innerHTML='';
+
+    for(let r=0;r<3;r++) for(let c=0;c<3;c++){
+      const sx=xCuts[c], sy=yCuts[r];
+      const sw=xCuts[c+1]-xCuts[c], sh=yCuts[r+1]-yCuts[r];
+
+      const cv=document.createElement('canvas');
+      cv.width=sw; cv.height=sh;
+      cv.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,sw,sh);
+
+      const url=cv.toDataURL('image/png');
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=`panel_${r*3+c+1}.png`;
+      const im=document.createElement('img');
+      im.src=url;
+      im.title=`${detected?'智能边界':'均分回退'}: x=${sx}-${sx+sw}, y=${sy}-${sy+sh}`;
+      a.appendChild(im);
+      wrap.appendChild(a);
+    }
+  }catch(e){ alert(e.message||String(e)); }
 };
 
 window.generateImage=async()=>{

@@ -57,7 +57,9 @@
   <div class="card">
     <h3>5) 九宫格切图（浏览器本地处理）</h3>
     <input type="file" id="gridImage" accept="image/*"/>
+    <button onclick="previewGridBounds()">预览识别边界线</button>
     <button onclick="splitGrid()">切成9张图（可下载）</button>
+    <div id="gridPreview" style="margin:8px 0"></div>
     <div id="pieces" class="grid"></div>
   </div>
 
