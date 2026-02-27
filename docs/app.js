@@ -2,7 +2,7 @@ const LS_KEY='ai_video_studio_cfg_v1';
 let lastAutoCuts=null;
 let manualCuts=null; // {x1,x2,y1,y2}
 let nudgeStep=1;
-let previewState=null; // {img,scale,canvas,dragging}
+let previewState=null; // {img,scale,canvas,dragging,regions}
 
 function loadCfg(){
   const raw=localStorage.getItem(LS_KEY);
@@ -217,17 +217,54 @@ function drawGridPreview(img,cuts){
     ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(vw,y); ctx.stroke();
   }
 
+  const regions=[];
+  if(manual){
+    const r=10, gap=16;
+    const drawHandle=(key,x,y,isVertical)=>{
+      // 把手
+      ctx.beginPath(); ctx.fillStyle='#0ea5e9'; ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font='11px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('≡',x,y+0.5);
+      regions.push({type:'drag',key,x,y,r:r+4});
+
+      // - 按钮
+      const mx=isVertical?x-gap-r:y;
+      const my=isVertical?y:x-gap-r;
+      const minusX=isVertical?mx:x;
+      const minusY=isVertical?my:y;
+      ctx.beginPath(); ctx.fillStyle='#111827'; ctx.arc(minusX,minusY,8,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.fillText('-',minusX,minusY+0.5);
+      regions.push({type:'nudge',key,dir:-1,x:minusX,y:minusY,r:10});
+
+      // + 按钮
+      const px=isVertical?x+gap+r:y;
+      const py=isVertical?y:x+gap+r;
+      const plusX=isVertical?px:x;
+      const plusY=isVertical?py:y;
+      ctx.beginPath(); ctx.fillStyle='#111827'; ctx.arc(plusX,plusY,8,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.fillText('+',plusX,plusY+0.5);
+      regions.push({type:'nudge',key,dir:1,x:plusX,y:plusY,r:10});
+    };
+
+    drawHandle('x1',Math.round(xCuts[1]*scale),26,true);
+    drawHandle('x2',Math.round(xCuts[2]*scale),26,true);
+    drawHandle('y1',26,Math.round(yCuts[1]*scale),false);
+    drawHandle('y2',26,Math.round(yCuts[2]*scale),false);
+  }
+
   ctx.fillStyle='rgba(0,0,0,0.65)';
   ctx.fillRect(8,8,250,28);
   ctx.fillStyle='#fff';
   ctx.font='14px Arial';
+  ctx.textAlign='left';
+  ctx.textBaseline='alphabetic';
   ctx.fillText(manual?'手动微调中':(detected?'智能边界识别':'均分回退（识别不稳定）'),14,27);
 
   if(!previewState?.canvas){
     box.innerHTML='';
     box.appendChild(cv);
   }
-  previewState={...(previewState||{}),img,scale,canvas:cv};
+  previewState={...(previewState||{}),img,scale,canvas:cv,regions};
 }
 
 function clampManualCuts(img,changedKey){
@@ -249,25 +286,8 @@ function clampManualCuts(img,changedKey){
   }
 }
 
-function updateManualControlUI(img){
-  const x1=document.getElementById('x1Range');
-  const x2=document.getElementById('x2Range');
-  const y1=document.getElementById('y1Range');
-  const y2=document.getElementById('y2Range');
-  if(!x1||!manualCuts) return;
-
-  const minGapX=Math.max(20,Math.floor(img.width*0.08));
-  const minGapY=Math.max(20,Math.floor(img.height*0.08));
-  x1.min=1; x1.max=img.width-minGapX-1;
-  x2.min=minGapX+1; x2.max=img.width-1;
-  y1.min=1; y1.max=img.height-minGapY-1;
-  y2.min=minGapY+1; y2.max=img.height-1;
-
-  x1.value=manualCuts.x1; x2.value=manualCuts.x2; y1.value=manualCuts.y1; y2.value=manualCuts.y2;
-  document.getElementById('x1Val').textContent=manualCuts.x1;
-  document.getElementById('x2Val').textContent=manualCuts.x2;
-  document.getElementById('y1Val').textContent=manualCuts.y1;
-  document.getElementById('y2Val').textContent=manualCuts.y2;
+function updateManualControlUI(_img){
+  // 底部滑块控件已移除，当前只保留预览图把手操作
 }
 
 function bindPreviewDrag(){
@@ -275,7 +295,8 @@ function bindPreviewDrag(){
   const img=previewState?.img;
   if(!cv||!img) return;
 
-  const getHit=(ox,oy)=>{
+  const findRegion=(ox,oy)=> (previewState?.regions||[]).find(r=>((ox-r.x)**2+(oy-r.y)**2)<=r.r*r.r);
+  const findLine=(ox,oy)=>{
     const x=ox/previewState.scale;
     const y=oy/previewState.scale;
     const tol=Math.max(8,10/previewState.scale);
@@ -289,20 +310,35 @@ function bindPreviewDrag(){
   cv.onpointerdown=(e)=>{
     if(!manualCuts) return;
     const rect=cv.getBoundingClientRect();
-    const hit=getHit(e.clientX-rect.left,e.clientY-rect.top);
-    if(hit){ previewState.dragging=hit; cv.setPointerCapture(e.pointerId); }
+    const ox=e.clientX-rect.left, oy=e.clientY-rect.top;
+    const region=findRegion(ox,oy);
+    if(region?.type==='nudge'){
+      manualCuts[region.key]+=region.dir*nudgeStep;
+      clampManualCuts(img,region.key);
+      drawGridPreview(img,getActiveCuts(img));
+      bindPreviewDrag();
+      return;
+    }
+    if(region?.type==='drag'){
+      previewState.dragging=region.key;
+      cv.setPointerCapture(e.pointerId);
+      return;
+    }
+    const line=findLine(ox,oy);
+    if(line){ previewState.dragging=line; cv.setPointerCapture(e.pointerId); }
   };
+
   cv.onpointermove=(e)=>{
     const rect=cv.getBoundingClientRect();
     const ox=e.clientX-rect.left, oy=e.clientY-rect.top;
-    const hit=getHit(ox,oy);
-    cv.style.cursor=previewState?.dragging ? 'grabbing' : (hit?'grab':'default');
+    const region=findRegion(ox,oy);
+    const line=findLine(ox,oy);
+    cv.style.cursor=previewState?.dragging ? 'grabbing' : (region||line?'grab':'default');
     if(!previewState?.dragging) return;
     const key=previewState.dragging;
     if(key.startsWith('x')) manualCuts[key]=Math.round(ox/previewState.scale);
     else manualCuts[key]=Math.round(oy/previewState.scale);
     clampManualCuts(img,key);
-    updateManualControlUI(img);
     drawGridPreview(img,getActiveCuts(img));
     bindPreviewDrag();
   };
@@ -312,23 +348,11 @@ function bindPreviewDrag(){
 
 function setupManualCutControls(img,xCuts,yCuts){
   const panel=document.getElementById('manualCutControls');
-  if(!panel) return;
-  panel.classList.remove('hidden');
-
-  const x1=document.getElementById('x1Range');
-  const x2=document.getElementById('x2Range');
-  const y1=document.getElementById('y1Range');
-  const y2=document.getElementById('y2Range');
+  if(panel) panel.classList.remove('hidden');
 
   manualCuts=manualCuts||{x1:xCuts[1],x2:xCuts[2],y1:yCuts[1],y2:yCuts[2]};
   clampManualCuts(img,'x2');
-  updateManualControlUI(img);
-
-  x1.oninput=()=>{ manualCuts.x1=Number(x1.value); clampManualCuts(img,'x1'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); bindPreviewDrag(); };
-  x2.oninput=()=>{ manualCuts.x2=Number(x2.value); clampManualCuts(img,'x2'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); bindPreviewDrag(); };
-  y1.oninput=()=>{ manualCuts.y1=Number(y1.value); clampManualCuts(img,'y1'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); bindPreviewDrag(); };
-  y2.oninput=()=>{ manualCuts.y2=Number(y2.value); clampManualCuts(img,'y2'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); bindPreviewDrag(); };
-
+  drawGridPreview(img,getActiveCuts(img));
   bindPreviewDrag();
 }
 
