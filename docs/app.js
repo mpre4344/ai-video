@@ -1,4 +1,6 @@
 const LS_KEY='ai_video_studio_cfg_v1';
+let lastAutoCuts=null;
+let manualCuts=null; // {x1,x2,y1,y2}
 
 function loadCfg(){
   const raw=localStorage.getItem(LS_KEY);
@@ -169,53 +171,123 @@ async function loadGridImage(){
   const f=document.getElementById('gridImage').files?.[0];
   if(!f) throw new Error('先上传九宫格图片');
   const img=new Image();
-  img.src=URL.createObjectURL(f);
+  const url=URL.createObjectURL(f);
+  img.src=url;
   await img.decode();
+  URL.revokeObjectURL(url);
   return img;
 }
+
+function getActiveCuts(img){
+  const auto=lastAutoCuts || detectGridCuts(img);
+  if(!lastAutoCuts) lastAutoCuts=auto;
+  if(manualCuts){
+    const xCuts=[0,manualCuts.x1,manualCuts.x2,img.width];
+    const yCuts=[0,manualCuts.y1,manualCuts.y2,img.height];
+    return {xCuts,yCuts,detected:false,manual:true};
+  }
+  return {...auto,manual:false};
+}
+
+function drawGridPreview(img,cuts){
+  const {xCuts,yCuts,detected,manual}=cuts;
+  const maxW=900;
+  const scale=Math.min(1,maxW/img.width);
+  const vw=Math.round(img.width*scale);
+  const vh=Math.round(img.height*scale);
+
+  const cv=document.createElement('canvas');
+  cv.width=vw; cv.height=vh;
+  const ctx=cv.getContext('2d');
+  ctx.drawImage(img,0,0,vw,vh);
+
+  ctx.lineWidth=2;
+  ctx.strokeStyle=manual?'#38bdf8':(detected?'#00e676':'#ff9800');
+  for(let i=1;i<=2;i++){
+    const x=Math.round(xCuts[i]*scale)+0.5;
+    const y=Math.round(yCuts[i]*scale)+0.5;
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,vh); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(vw,y); ctx.stroke();
+  }
+
+  ctx.fillStyle='rgba(0,0,0,0.65)';
+  ctx.fillRect(8,8,250,28);
+  ctx.fillStyle='#fff';
+  ctx.font='14px Arial';
+  ctx.fillText(manual?'手动微调中':(detected?'智能边界识别':'均分回退（识别不稳定）'),14,27);
+
+  const box=document.getElementById('gridPreview');
+  box.innerHTML='';
+  box.appendChild(cv);
+}
+
+function setupManualCutControls(img,xCuts,yCuts){
+  const panel=document.getElementById('manualCutControls');
+  if(!panel) return;
+  panel.classList.remove('hidden');
+
+  const x1=document.getElementById('x1Range');
+  const x2=document.getElementById('x2Range');
+  const y1=document.getElementById('y1Range');
+  const y2=document.getElementById('y2Range');
+
+  const minGapX=Math.max(20,Math.floor(img.width*0.08));
+  const minGapY=Math.max(20,Math.floor(img.height*0.08));
+
+  x1.min=1; x1.max=img.width-minGapX-1; x1.value=xCuts[1];
+  x2.min=minGapX+1; x2.max=img.width-1; x2.value=xCuts[2];
+  y1.min=1; y1.max=img.height-minGapY-1; y1.value=yCuts[1];
+  y2.min=minGapY+1; y2.max=img.height-1; y2.value=yCuts[2];
+
+  const sync=()=>{
+    let x1v=Number(x1.value), x2v=Number(x2.value);
+    let y1v=Number(y1.value), y2v=Number(y2.value);
+    if(x2v-x1v<minGapX){ if(this===x1) x2v=x1v+minGapX; else x1v=x2v-minGapX; }
+    if(y2v-y1v<minGapY){ if(this===y1) y2v=y1v+minGapY; else y1v=y2v-minGapY; }
+    x1.value=Math.max(1,Math.min(x1v,img.width-minGapX-1));
+    x2.value=Math.max(minGapX+1,Math.min(x2v,img.width-1));
+    y1.value=Math.max(1,Math.min(y1v,img.height-minGapY-1));
+    y2.value=Math.max(minGapY+1,Math.min(y2v,img.height-1));
+
+    manualCuts={x1:Number(x1.value),x2:Number(x2.value),y1:Number(y1.value),y2:Number(y2.value)};
+    document.getElementById('x1Val').textContent=manualCuts.x1;
+    document.getElementById('x2Val').textContent=manualCuts.x2;
+    document.getElementById('y1Val').textContent=manualCuts.y1;
+    document.getElementById('y2Val').textContent=manualCuts.y2;
+    drawGridPreview(img,getActiveCuts(img));
+  };
+
+  [x1,x2,y1,y2].forEach(el=>el.oninput=sync);
+  manualCuts={x1:Number(x1.value),x2:Number(x2.value),y1:Number(y1.value),y2:Number(y2.value)};
+  sync();
+}
+
+window.resetManualCuts=()=>{
+  manualCuts=null;
+  if(lastAutoCuts){
+    document.getElementById('x1Val').textContent=lastAutoCuts.xCuts[1];
+    document.getElementById('x2Val').textContent=lastAutoCuts.xCuts[2];
+    document.getElementById('y1Val').textContent=lastAutoCuts.yCuts[1];
+    document.getElementById('y2Val').textContent=lastAutoCuts.yCuts[2];
+  }
+  previewGridBounds();
+};
 
 window.previewGridBounds=async()=>{
   try{
     const img=await loadGridImage();
-    const {xCuts,yCuts,detected}=detectGridCuts(img);
-
-    const maxW=900;
-    const scale=Math.min(1,maxW/img.width);
-    const vw=Math.round(img.width*scale);
-    const vh=Math.round(img.height*scale);
-
-    const cv=document.createElement('canvas');
-    cv.width=vw; cv.height=vh;
-    const ctx=cv.getContext('2d');
-    ctx.drawImage(img,0,0,vw,vh);
-
-    // 边界线
-    ctx.lineWidth=2;
-    ctx.strokeStyle=detected?'#00e676':'#ff9800';
-    for(let i=1;i<=2;i++){
-      const x=Math.round(xCuts[i]*scale)+0.5;
-      const y=Math.round(yCuts[i]*scale)+0.5;
-      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,vh); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(vw,y); ctx.stroke();
-    }
-
-    // 标签
-    ctx.fillStyle='rgba(0,0,0,0.65)';
-    ctx.fillRect(8,8,220,28);
-    ctx.fillStyle='#fff';
-    ctx.font='14px Arial';
-    ctx.fillText(detected?'智能边界识别':'均分回退（识别不稳定）',14,27);
-
-    const box=document.getElementById('gridPreview');
-    box.innerHTML='';
-    box.appendChild(cv);
+    lastAutoCuts=detectGridCuts(img);
+    const cuts=getActiveCuts(img);
+    drawGridPreview(img,cuts);
+    setupManualCutControls(img,lastAutoCuts.xCuts,lastAutoCuts.yCuts);
   }catch(e){ alert(e.message||String(e)); }
 };
 
 window.splitGrid=async()=>{
   try{
     const img=await loadGridImage();
-    const {xCuts,yCuts,detected}=detectGridCuts(img);
+    if(!lastAutoCuts) lastAutoCuts=detectGridCuts(img);
+    const {xCuts,yCuts,detected,manual}=getActiveCuts(img);
     const wrap=document.getElementById('pieces');
     wrap.innerHTML='';
 
@@ -233,7 +305,7 @@ window.splitGrid=async()=>{
       a.download=`panel_${r*3+c+1}.png`;
       const im=document.createElement('img');
       im.src=url;
-      im.title=`${detected?'智能边界':'均分回退'}: x=${sx}-${sx+sw}, y=${sy}-${sy+sh}`;
+      im.title=`${manual?'手动微调':(detected?'智能边界':'均分回退')}: x=${sx}-${sx+sw}, y=${sy}-${sy+sh}`;
       a.appendChild(im);
       wrap.appendChild(a);
     }
@@ -305,6 +377,89 @@ window.buildCurl=()=>{
   const stoken=document.getElementById('stoken').value.trim();
   const curl=`curl -X POST 'https://api.coze.cn/v1/workflow/run' \\\n  -H 'Content-Type: application/json' \\\n  -H 'Authorization: Bearer ${sid}:${stoken}' \\\n  -H 'X-Service-Desk-Id: ${sid}' \\\n  -H 'X-Service-Desk-Token: ${stoken}' \\\n  -d '{"input":"<your_request_payload_here>"}'`;
   document.getElementById('curlOut').textContent=curl;
+};
+
+window.mergeVideosTool=async()=>{
+  const input=document.getElementById('mergeVideosInput');
+  const files=[...(input?.files||[])];
+  const status=document.getElementById('mergeVideosStatus');
+  const out=document.getElementById('mergeVideosOut');
+  const btn=document.getElementById('mergeVideosBtn');
+  if(files.length<2) return alert('请至少选择2个视频文件');
+
+  btn.disabled=true;
+  btn.classList.add('opacity-60');
+  out.innerHTML='';
+  status.textContent='准备合并中...';
+
+  try{
+    const firstUrl=URL.createObjectURL(files[0]);
+    const probe=document.createElement('video');
+    probe.preload='metadata';
+    probe.src=firstUrl;
+    await new Promise((res,rej)=>{ probe.onloadedmetadata=res; probe.onerror=()=>rej(new Error('无法读取视频元数据')); });
+    const width=probe.videoWidth||1280;
+    const height=probe.videoHeight||720;
+    URL.revokeObjectURL(firstUrl);
+
+    const canvas=document.createElement('canvas');
+    canvas.width=width; canvas.height=height;
+    const ctx=canvas.getContext('2d');
+
+    const stream=canvas.captureStream(30);
+    const recChunks=[];
+    let recorder;
+    if(MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp9,opus'});
+    else if(MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp8,opus'});
+    else recorder=new MediaRecorder(stream);
+    recorder.ondataavailable=(e)=>{ if(e.data?.size) recChunks.push(e.data); };
+    recorder.start(1000);
+
+    const playOne=async(file,idx)=>{
+      status.textContent=`合并中 ${idx+1}/${files.length}：${file.name}`;
+      const url=URL.createObjectURL(file);
+      const v=document.createElement('video');
+      v.src=url;
+      v.muted=true;
+      v.playsInline=true;
+      await new Promise((res,rej)=>{ v.onloadedmetadata=res; v.onerror=()=>rej(new Error(`无法读取视频: ${file.name}`)); });
+      await v.play();
+
+      await new Promise((resolve)=>{
+        const draw=()=>{
+          ctx.fillStyle='black'; ctx.fillRect(0,0,width,height);
+          const ratio=Math.min(width/v.videoWidth,height/v.videoHeight);
+          const dw=v.videoWidth*ratio, dh=v.videoHeight*ratio;
+          const dx=(width-dw)/2, dy=(height-dh)/2;
+          ctx.drawImage(v,dx,dy,dw,dh);
+          if(v.ended){ resolve(); URL.revokeObjectURL(url); return; }
+          requestAnimationFrame(draw);
+        };
+        draw();
+      });
+    };
+
+    for(let i=0;i<files.length;i++) await playOne(files[i],i);
+
+    status.textContent='正在封装输出...';
+    await new Promise(res=>{ recorder.onstop=res; recorder.stop(); });
+
+    const blob=new Blob(recChunks,{type:'video/webm'});
+    const mergedUrl=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=mergedUrl;
+    a.download=`merged_${Date.now()}.webm`;
+    a.className='inline-block rounded-lg bg-fuchsia-600 px-4 py-2 text-white';
+    a.textContent='下载合并后视频';
+    out.appendChild(a);
+    status.textContent=`合并完成，大小 ${(blob.size/1024/1024).toFixed(2)} MB`;
+  }catch(e){
+    status.textContent='';
+    alert(e.message||String(e));
+  }finally{
+    btn.disabled=false;
+    btn.classList.remove('opacity-60');
+  }
 };
 
 const THEME_KEY='ai_video_studio_theme_v1';
