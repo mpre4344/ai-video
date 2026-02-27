@@ -262,6 +262,7 @@ function nudgeInline(key,dir){
   manualCuts[key]+=dir*nudgeStep;
   clampManualCuts(img,key);
   drawGridPreview(img,getActiveCuts(img));
+  bindPreviewDrag();
 }
 
 function renderLineHandles(){
@@ -301,23 +302,32 @@ function renderLineHandles(){
       wrap.style.top=`${Math.max(40,Math.min(pos-10,box.clientHeight-28))}px`;
     }
 
-    // 拖拽把手
+    // 拖拽把手（用 window 监听，避免重绘后把手节点替换导致拖不动）
     grip.onpointerdown=(e)=>{
       e.preventDefault();
-      grip.setPointerCapture(e.pointerId);
       previewState.dragging={key,isVertical};
+
+      const onMove=(ev)=>{
+        if(!previewState?.dragging || previewState.dragging.key!==key) return;
+        const rect=box.getBoundingClientRect();
+        const ox=ev.clientX-rect.left;
+        const oy=ev.clientY-rect.top;
+        if(isVertical) manualCuts[key]=Math.round(ox/s);
+        else manualCuts[key]=Math.round(oy/s);
+        clampManualCuts(img,key);
+        drawGridPreview(img,getActiveCuts(img));
+        bindPreviewDrag();
+      };
+
+      const onUp=()=>{
+        previewState.dragging=null;
+        window.removeEventListener('pointermove',onMove);
+        window.removeEventListener('pointerup',onUp);
+      };
+
+      window.addEventListener('pointermove',onMove);
+      window.addEventListener('pointerup',onUp,{once:true});
     };
-    grip.onpointermove=(e)=>{
-      if(!previewState?.dragging || previewState.dragging.key!==key) return;
-      const rect=box.getBoundingClientRect();
-      const ox=e.clientX-rect.left;
-      const oy=e.clientY-rect.top;
-      if(isVertical) manualCuts[key]=Math.round(ox/s);
-      else manualCuts[key]=Math.round(oy/s);
-      clampManualCuts(img,key);
-      drawGridPreview(img,getActiveCuts(img));
-    };
-    grip.onpointerup=(e)=>{ try{grip.releasePointerCapture(e.pointerId);}catch{} previewState.dragging=null; };
 
     box.appendChild(wrap);
   };
