@@ -296,6 +296,19 @@ window.buildCurl=()=>{
   document.getElementById('curlOut').textContent=curl;
 };
 
+const THEME_KEY='ai_video_studio_theme_v1';
+
+function applyTheme(theme){
+  const isDark = theme==='dark';
+  document.documentElement.classList.toggle('dark', isDark);
+}
+
+window.toggleTheme=()=>{
+  const next=document.documentElement.classList.contains('dark')?'light':'dark';
+  localStorage.setItem(THEME_KEY,next);
+  applyTheme(next);
+};
+
 window.openSettings=()=>{
   document.getElementById('settingsModal')?.classList.remove('hidden');
 };
@@ -307,5 +320,12 @@ window.closeSettings=()=>{
 document.addEventListener('keydown',(e)=>{
   if(e.key==='Escape') closeSettings();
 });
+
+(function initTheme(){
+  const saved=localStorage.getItem(THEME_KEY);
+  if(saved==='dark' || saved==='light') return applyTheme(saved);
+  const prefersDark=window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(prefersDark?'dark':'light');
+})();
 
 loadCfg();

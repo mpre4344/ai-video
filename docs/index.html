@@ -1,114 +1,139 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="h-full">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AI Video Studio</title>
+  <script>
+    tailwind = { config: { darkMode: 'class' } }
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-50 text-slate-800">
-  <div class="max-w-6xl mx-auto px-4 py-8">
-    <header class="mb-6 flex items-start justify-between gap-4">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight">AI Video Studio</h1>
-        <p class="mt-2 text-slate-600">分镜 → 九宫格 → 切图 → 视频生成，一站式工作流</p>
-      </div>
-      <button onclick="openSettings()" class="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-white hover:bg-slate-700 shadow">
-        ⚙️ 设置
-      </button>
-    </header>
-
-    <main class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-      <section class="lg:col-span-7 space-y-5">
-        <div class="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-          <h2 class="text-lg font-semibold">1) 剧本生成九镜头分镜</h2>
-          <p class="text-sm text-slate-500 mb-3">输入剧情后，自动输出 镜头01~09</p>
-          <textarea id="script" rows="6" class="w-full rounded-xl border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="输入剧情概述"></textarea>
-          <input id="styleHint" class="mt-3 w-full rounded-xl border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="风格参考（可选）"/>
-          <button onclick="generateStoryboard()" class="mt-3 w-full rounded-xl bg-indigo-600 text-white py-3 font-medium hover:bg-indigo-500">生成九镜头</button>
-          <textarea id="storyboard" rows="12" class="mt-3 w-full rounded-xl border border-slate-300 p-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="镜头01：... 到 镜头09：..."></textarea>
-        </div>
-
-        <div class="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-          <h2 class="text-lg font-semibold">2) 九宫格 Prompt 组装</h2>
-          <input id="summary" class="mt-3 w-full rounded-xl border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="剧情概述或画面主题"/>
-          <button onclick="buildGridPrompt()" class="mt-3 w-full rounded-xl bg-violet-600 text-white py-3 font-medium hover:bg-violet-500">生成九宫格 Prompt</button>
-          <textarea id="gridPrompt" rows="10" class="mt-3 w-full rounded-xl border border-slate-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-        </div>
-
-        <div class="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-          <h2 class="text-lg font-semibold">3) 生成九宫格图片</h2>
-          <textarea id="imagePrompt" rows="6" class="mt-3 w-full rounded-xl border border-slate-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="可粘贴上面的九宫格 Prompt"></textarea>
-          <button onclick="generateImage()" class="mt-3 w-full rounded-xl bg-emerald-600 text-white py-3 font-medium hover:bg-emerald-500">生成图片</button>
-          <div id="imageOut" class="mt-4 rounded-xl border border-dashed border-slate-300 p-2 bg-slate-50"></div>
-        </div>
-      </section>
-
-      <section class="lg:col-span-5 space-y-5">
-        <div class="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-          <h2 class="text-lg font-semibold">4) 九宫格切图</h2>
-          <p class="text-sm text-slate-500 mb-3">支持智能边界识别，先预览再切图</p>
-          <input type="file" id="gridImage" accept="image/*" class="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:text-white file:px-3 file:py-2"/>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-            <button onclick="previewGridBounds()" class="rounded-xl bg-slate-700 text-white py-3 hover:bg-slate-600">预览识别边界线</button>
-            <button onclick="splitGrid()" class="rounded-xl bg-cyan-600 text-white py-3 hover:bg-cyan-500">切成9张图</button>
+<body class="h-full bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+  <div class="min-h-full">
+    <div class="bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 text-white shadow-lg">
+      <div class="max-w-7xl mx-auto px-4 py-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-[0.18em] text-white/75">Creative Pipeline</p>
+            <h1 class="text-3xl font-bold tracking-tight mt-1">AI Video Studio</h1>
+            <p class="mt-2 text-white/85">从剧情到分镜、到九宫格、到视频，一条链路一次完成。</p>
           </div>
-          <div id="gridPreview" class="mt-4 rounded-xl overflow-hidden border border-slate-200 bg-slate-50"></div>
-          <div id="pieces" class="mt-4 grid grid-cols-3 gap-2"></div>
+          <div class="flex items-center gap-2">
+            <button onclick="toggleTheme()" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-medium hover:bg-white/25">🌓 主题</button>
+            <button onclick="openSettings()" class="rounded-xl bg-slate-900/70 px-4 py-2 text-sm font-medium hover:bg-slate-900">⚙️ 设置</button>
+          </div>
         </div>
+      </div>
+    </div>
 
-        <div class="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-          <h2 class="text-lg font-semibold">5) 生成视频请求</h2>
-          <textarea id="roleCard" rows="3" class="mt-3 w-full rounded-xl border border-slate-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="@角色卡（可选）"></textarea>
-          <button onclick="generateVideo()" class="mt-3 w-full rounded-xl bg-rose-600 text-white py-3 font-medium hover:bg-rose-500">调用视频生成接口</button>
-          <pre id="videoResult" class="mt-3 rounded-xl bg-slate-900 text-emerald-300 text-xs p-3 overflow-auto max-h-80"></pre>
+    <div class="max-w-7xl mx-auto px-4 py-6">
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-2 text-sm">
+          <div class="rounded-xl bg-indigo-50 text-indigo-700 px-3 py-2 font-medium dark:bg-indigo-500/20 dark:text-indigo-300">① 剧本分镜</div>
+          <div class="rounded-xl bg-violet-50 text-violet-700 px-3 py-2 font-medium dark:bg-violet-500/20 dark:text-violet-300">② 九宫格 Prompt</div>
+          <div class="rounded-xl bg-emerald-50 text-emerald-700 px-3 py-2 font-medium dark:bg-emerald-500/20 dark:text-emerald-300">③ 图片生成</div>
+          <div class="rounded-xl bg-cyan-50 text-cyan-700 px-3 py-2 font-medium dark:bg-cyan-500/20 dark:text-cyan-300">④ 智能切图</div>
+          <div class="rounded-xl bg-rose-50 text-rose-700 px-3 py-2 font-medium dark:bg-rose-500/20 dark:text-rose-300">⑤ 视频生成</div>
         </div>
-      </section>
-    </main>
+      </div>
+
+      <main class="mt-5 grid grid-cols-1 xl:grid-cols-12 gap-5">
+        <section class="xl:col-span-7 space-y-5">
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="text-base font-semibold">1) 剧本生成九镜头分镜</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">输入剧情和风格，自动输出镜头01~09。</p>
+            <textarea id="script" rows="6" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950" placeholder="输入剧情概述"></textarea>
+            <input id="styleHint" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950" placeholder="风格参考（可选）"/>
+            <button onclick="generateStoryboard()" class="mt-3 w-full rounded-xl bg-indigo-600 py-3 font-medium text-white hover:bg-indigo-500">生成九镜头</button>
+            <textarea id="storyboard" rows="12" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950" placeholder="镜头01：... 到 镜头09：..."></textarea>
+          </article>
+
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="text-base font-semibold">2) 九宫格 Prompt 组装</h2>
+            <input id="summary" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-950" placeholder="剧情概述或画面主题"/>
+            <button onclick="buildGridPrompt()" class="mt-3 w-full rounded-xl bg-violet-600 py-3 font-medium text-white hover:bg-violet-500">生成九宫格 Prompt</button>
+            <textarea id="gridPrompt" rows="10" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-950"></textarea>
+          </article>
+
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="text-base font-semibold">3) 生成九宫格图片</h2>
+            <textarea id="imagePrompt" rows="6" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950" placeholder="可粘贴上面的九宫格 Prompt"></textarea>
+            <button onclick="generateImage()" class="mt-3 w-full rounded-xl bg-emerald-600 py-3 font-medium text-white hover:bg-emerald-500">生成图片</button>
+            <div id="imageOut" class="mt-4 min-h-16 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-950"></div>
+          </article>
+        </section>
+
+        <section class="xl:col-span-5 space-y-5">
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="text-base font-semibold">4) 九宫格切图</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">智能边界识别 + 预览线校验。</p>
+            <input type="file" id="gridImage" accept="image/*" class="mt-3 w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-white dark:file:bg-slate-700"/>
+            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button onclick="previewGridBounds()" class="rounded-xl bg-slate-700 py-3 text-white hover:bg-slate-600">预览识别边界线</button>
+              <button onclick="splitGrid()" class="rounded-xl bg-cyan-600 py-3 text-white hover:bg-cyan-500">切成9张图</button>
+            </div>
+            <div id="gridPreview" class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950"></div>
+            <div id="pieces" class="mt-4 grid grid-cols-3 gap-2"></div>
+          </article>
+
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="text-base font-semibold">5) 生成视频请求</h2>
+            <textarea id="roleCard" rows="3" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-slate-700 dark:bg-slate-950" placeholder="@角色卡（可选）"></textarea>
+            <button onclick="generateVideo()" class="mt-3 w-full rounded-xl bg-rose-600 py-3 font-medium text-white hover:bg-rose-500">调用视频生成接口</button>
+            <pre id="videoResult" class="mt-3 max-h-80 overflow-auto rounded-xl bg-slate-900 p-3 text-xs text-emerald-300"></pre>
+          </article>
+        </section>
+      </main>
+    </div>
   </div>
 
-  <!-- Settings Modal -->
   <div id="settingsModal" class="hidden fixed inset-0 z-50">
-    <div class="absolute inset-0 bg-black/45" onclick="closeSettings()"></div>
-    <div class="absolute right-0 top-0 h-full w-full max-w-lg bg-white shadow-2xl p-6 overflow-y-auto">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeSettings()"></div>
+    <div class="absolute right-0 top-0 h-full w-full max-w-xl border-l border-slate-200 bg-white p-6 shadow-2xl overflow-y-auto dark:border-slate-800 dark:bg-slate-900">
       <div class="flex items-center justify-between">
-        <h3 class="text-xl font-semibold">设置</h3>
-        <button onclick="closeSettings()" class="rounded-lg px-3 py-2 hover:bg-slate-100">✕</button>
+        <h3 class="text-xl font-semibold">设置中心</h3>
+        <button onclick="closeSettings()" class="rounded-lg px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
       </div>
-      <p class="text-sm text-slate-500 mt-1">仅保存在当前浏览器 localStorage</p>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">仅保存在当前浏览器 localStorage。</p>
 
       <div class="mt-5 space-y-3">
-        <label class="text-sm font-medium text-slate-700">Base URL</label>
-        <input id="baseUrl" class="w-full rounded-xl border border-slate-300 p-3" placeholder="例如 https://api.openai.com/v1"/>
+        <label class="text-sm font-medium">Base URL</label>
+        <input id="baseUrl" class="w-full rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950" placeholder="例如 https://api.openai.com/v1"/>
 
-        <label class="text-sm font-medium text-slate-700">API Key</label>
-        <input id="apiKey" class="w-full rounded-xl border border-slate-300 p-3" placeholder="API Key"/>
+        <label class="text-sm font-medium">API Key</label>
+        <input id="apiKey" type="password" class="w-full rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950" placeholder="API Key"/>
 
-        <label class="text-sm font-medium text-slate-700">分镜模型 (chatModel)</label>
-        <input id="chatModel" class="w-full rounded-xl border border-slate-300 p-3" placeholder="例如 gpt-4.1 / qwen / glm"/>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="text-sm font-medium">分镜模型</label>
+            <input id="chatModel" class="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950" placeholder="gpt-4.1 / qwen / glm"/>
+          </div>
+          <div>
+            <label class="text-sm font-medium">视频模型</label>
+            <input id="videoModel" class="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950" placeholder="sora2 / jimeng-video"/>
+          </div>
+        </div>
 
-        <label class="text-sm font-medium text-slate-700">视频模型 (videoModel)</label>
-        <input id="videoModel" class="w-full rounded-xl border border-slate-300 p-3" placeholder="例如 sora2 / jimeng-video"/>
-
-        <label class="text-sm font-medium text-slate-700">图片供应商</label>
-        <select id="imageProvider" class="w-full rounded-xl border border-slate-300 p-3">
+        <label class="text-sm font-medium">图片供应商</label>
+        <select id="imageProvider" class="w-full rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
           <option value="openai">OpenAI兼容</option>
           <option value="gemini">Gemini</option>
         </select>
 
-        <label class="text-sm font-medium text-slate-700">图片模型 (imageModel)</label>
-        <input id="imageModel" class="w-full rounded-xl border border-slate-300 p-3" placeholder="例如 gpt-image-1 / gemini-2.0-flash-preview-image-generation"/>
+        <label class="text-sm font-medium">图片模型</label>
+        <input id="imageModel" class="w-full rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950" placeholder="gpt-image-1 / gemini-2.0-flash-preview-image-generation"/>
       </div>
 
-      <button onclick="saveCfg();closeSettings()" class="mt-6 w-full rounded-xl bg-slate-900 text-white py-3 font-medium hover:bg-slate-700">保存设置</button>
+      <button onclick="saveCfg();closeSettings()" class="mt-6 w-full rounded-xl bg-slate-900 py-3 font-medium text-white hover:bg-slate-700">保存设置</button>
 
-      <details class="mt-6 rounded-xl border border-slate-200 p-4">
+      <details class="mt-6 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
         <summary class="cursor-pointer font-medium">工具：服务台 ID/Token → curl</summary>
         <div class="mt-3 space-y-3">
-          <input id="sid" value="7528261067762778116" class="w-full rounded-xl border border-slate-300 p-3"/>
-          <input id="stoken" value="ht-d98cbf61-cb2d-4eb9-03c7-7838fd700f94" class="w-full rounded-xl border border-slate-300 p-3"/>
-          <button onclick="buildCurl()" class="rounded-xl bg-slate-700 text-white py-3 w-full">生成 curl</button>
-          <pre id="curlOut" class="rounded-xl bg-slate-900 text-emerald-300 text-xs p-3 overflow-auto"></pre>
+          <input id="sid" value="7528261067762778116" class="w-full rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950"/>
+          <input id="stoken" value="ht-d98cbf61-cb2d-4eb9-03c7-7838fd700f94" class="w-full rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950"/>
+          <button onclick="buildCurl()" class="w-full rounded-xl bg-slate-700 py-3 text-white hover:bg-slate-600">生成 curl</button>
+          <pre id="curlOut" class="overflow-auto rounded-xl bg-slate-900 p-3 text-xs text-emerald-300"></pre>
         </div>
       </details>
     </div>
