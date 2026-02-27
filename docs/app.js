@@ -1,6 +1,8 @@
 const LS_KEY='ai_video_studio_cfg_v1';
 let lastAutoCuts=null;
 let manualCuts=null; // {x1,x2,y1,y2}
+let nudgeStep=1;
+let previewState=null; // {img,scale,canvas,dragging}
 
 function loadCfg(){
   const raw=localStorage.getItem(LS_KEY);
@@ -196,7 +198,9 @@ function drawGridPreview(img,cuts){
   const vw=Math.round(img.width*scale);
   const vh=Math.round(img.height*scale);
 
-  const cv=document.createElement('canvas');
+  const cv=(previewState?.canvas && previewState.canvas.width===vw && previewState.canvas.height===vh)
+    ? previewState.canvas
+    : document.createElement('canvas');
   cv.width=vw; cv.height=vh;
   const ctx=cv.getContext('2d');
   ctx.drawImage(img,0,0,vw,vh);
@@ -217,8 +221,90 @@ function drawGridPreview(img,cuts){
   ctx.fillText(manual?'手动微调中':(detected?'智能边界识别':'均分回退（识别不稳定）'),14,27);
 
   const box=document.getElementById('gridPreview');
-  box.innerHTML='';
-  box.appendChild(cv);
+  if(!previewState?.canvas){
+    box.innerHTML='';
+    box.appendChild(cv);
+  }
+  previewState={...(previewState||{}),img,scale,canvas:cv};
+}
+
+function clampManualCuts(img,changedKey){
+  if(!manualCuts) return;
+  const minGapX=Math.max(20,Math.floor(img.width*0.08));
+  const minGapY=Math.max(20,Math.floor(img.height*0.08));
+  manualCuts.x1=Math.max(1,Math.min(manualCuts.x1,img.width-minGapX-1));
+  manualCuts.x2=Math.max(minGapX+1,Math.min(manualCuts.x2,img.width-1));
+  manualCuts.y1=Math.max(1,Math.min(manualCuts.y1,img.height-minGapY-1));
+  manualCuts.y2=Math.max(minGapY+1,Math.min(manualCuts.y2,img.height-1));
+
+  if(manualCuts.x2-manualCuts.x1<minGapX){
+    if(changedKey==='x1') manualCuts.x2=manualCuts.x1+minGapX;
+    else manualCuts.x1=manualCuts.x2-minGapX;
+  }
+  if(manualCuts.y2-manualCuts.y1<minGapY){
+    if(changedKey==='y1') manualCuts.y2=manualCuts.y1+minGapY;
+    else manualCuts.y1=manualCuts.y2-minGapY;
+  }
+}
+
+function updateManualControlUI(img){
+  const x1=document.getElementById('x1Range');
+  const x2=document.getElementById('x2Range');
+  const y1=document.getElementById('y1Range');
+  const y2=document.getElementById('y2Range');
+  if(!x1||!manualCuts) return;
+
+  const minGapX=Math.max(20,Math.floor(img.width*0.08));
+  const minGapY=Math.max(20,Math.floor(img.height*0.08));
+  x1.min=1; x1.max=img.width-minGapX-1;
+  x2.min=minGapX+1; x2.max=img.width-1;
+  y1.min=1; y1.max=img.height-minGapY-1;
+  y2.min=minGapY+1; y2.max=img.height-1;
+
+  x1.value=manualCuts.x1; x2.value=manualCuts.x2; y1.value=manualCuts.y1; y2.value=manualCuts.y2;
+  document.getElementById('x1Val').textContent=manualCuts.x1;
+  document.getElementById('x2Val').textContent=manualCuts.x2;
+  document.getElementById('y1Val').textContent=manualCuts.y1;
+  document.getElementById('y2Val').textContent=manualCuts.y2;
+}
+
+function bindPreviewDrag(){
+  const cv=previewState?.canvas;
+  const img=previewState?.img;
+  if(!cv||!img) return;
+
+  const getHit=(ox,oy)=>{
+    const x=ox/previewState.scale;
+    const y=oy/previewState.scale;
+    const tol=Math.max(8,10/previewState.scale);
+    if(Math.abs(x-manualCuts.x1)<=tol) return 'x1';
+    if(Math.abs(x-manualCuts.x2)<=tol) return 'x2';
+    if(Math.abs(y-manualCuts.y1)<=tol) return 'y1';
+    if(Math.abs(y-manualCuts.y2)<=tol) return 'y2';
+    return null;
+  };
+
+  cv.onpointerdown=(e)=>{
+    if(!manualCuts) return;
+    const rect=cv.getBoundingClientRect();
+    const hit=getHit(e.clientX-rect.left,e.clientY-rect.top);
+    if(hit){ previewState.dragging=hit; cv.setPointerCapture(e.pointerId); }
+  };
+  cv.onpointermove=(e)=>{
+    const rect=cv.getBoundingClientRect();
+    const ox=e.clientX-rect.left, oy=e.clientY-rect.top;
+    const hit=getHit(ox,oy);
+    cv.style.cursor=previewState?.dragging ? 'grabbing' : (hit?'grab':'default');
+    if(!previewState?.dragging) return;
+    const key=previewState.dragging;
+    if(key.startsWith('x')) manualCuts[key]=Math.round(ox/previewState.scale);
+    else manualCuts[key]=Math.round(oy/previewState.scale);
+    clampManualCuts(img,key);
+    updateManualControlUI(img);
+    drawGridPreview(img,getActiveCuts(img));
+  };
+  cv.onpointerup=(e)=>{ previewState.dragging=null; try{cv.releasePointerCapture(e.pointerId);}catch{} };
+  cv.onpointercancel=()=>{ previewState.dragging=null; };
 }
 
 function setupManualCutControls(img,xCuts,yCuts){
@@ -231,44 +317,37 @@ function setupManualCutControls(img,xCuts,yCuts){
   const y1=document.getElementById('y1Range');
   const y2=document.getElementById('y2Range');
 
-  const minGapX=Math.max(20,Math.floor(img.width*0.08));
-  const minGapY=Math.max(20,Math.floor(img.height*0.08));
+  manualCuts=manualCuts||{x1:xCuts[1],x2:xCuts[2],y1:yCuts[1],y2:yCuts[2]};
+  clampManualCuts(img,'x2');
+  updateManualControlUI(img);
 
-  x1.min=1; x1.max=img.width-minGapX-1; x1.value=xCuts[1];
-  x2.min=minGapX+1; x2.max=img.width-1; x2.value=xCuts[2];
-  y1.min=1; y1.max=img.height-minGapY-1; y1.value=yCuts[1];
-  y2.min=minGapY+1; y2.max=img.height-1; y2.value=yCuts[2];
+  x1.oninput=()=>{ manualCuts.x1=Number(x1.value); clampManualCuts(img,'x1'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); };
+  x2.oninput=()=>{ manualCuts.x2=Number(x2.value); clampManualCuts(img,'x2'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); };
+  y1.oninput=()=>{ manualCuts.y1=Number(y1.value); clampManualCuts(img,'y1'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); };
+  y2.oninput=()=>{ manualCuts.y2=Number(y2.value); clampManualCuts(img,'y2'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); };
 
-  const sync=()=>{
-    let x1v=Number(x1.value), x2v=Number(x2.value);
-    let y1v=Number(y1.value), y2v=Number(y2.value);
-    if(x2v-x1v<minGapX){ if(this===x1) x2v=x1v+minGapX; else x1v=x2v-minGapX; }
-    if(y2v-y1v<minGapY){ if(this===y1) y2v=y1v+minGapY; else y1v=y2v-minGapY; }
-    x1.value=Math.max(1,Math.min(x1v,img.width-minGapX-1));
-    x2.value=Math.max(minGapX+1,Math.min(x2v,img.width-1));
-    y1.value=Math.max(1,Math.min(y1v,img.height-minGapY-1));
-    y2.value=Math.max(minGapY+1,Math.min(y2v,img.height-1));
-
-    manualCuts={x1:Number(x1.value),x2:Number(x2.value),y1:Number(y1.value),y2:Number(y2.value)};
-    document.getElementById('x1Val').textContent=manualCuts.x1;
-    document.getElementById('x2Val').textContent=manualCuts.x2;
-    document.getElementById('y1Val').textContent=manualCuts.y1;
-    document.getElementById('y2Val').textContent=manualCuts.y2;
-    drawGridPreview(img,getActiveCuts(img));
-  };
-
-  [x1,x2,y1,y2].forEach(el=>el.oninput=sync);
-  manualCuts={x1:Number(x1.value),x2:Number(x2.value),y1:Number(y1.value),y2:Number(y2.value)};
-  sync();
+  bindPreviewDrag();
 }
+
+window.setNudgeStep=(step)=>{ nudgeStep=step; };
+
+window.nudgeCut=(key,dir)=>{
+  const img=previewState?.img;
+  if(!img) return;
+  if(!manualCuts && lastAutoCuts){
+    manualCuts={x1:lastAutoCuts.xCuts[1],x2:lastAutoCuts.xCuts[2],y1:lastAutoCuts.yCuts[1],y2:lastAutoCuts.yCuts[2]};
+  }
+  if(!manualCuts) return;
+  manualCuts[key]+=dir*nudgeStep;
+  clampManualCuts(img,key);
+  updateManualControlUI(img);
+  drawGridPreview(img,getActiveCuts(img));
+};
 
 window.resetManualCuts=()=>{
   manualCuts=null;
   if(lastAutoCuts){
-    document.getElementById('x1Val').textContent=lastAutoCuts.xCuts[1];
-    document.getElementById('x2Val').textContent=lastAutoCuts.xCuts[2];
-    document.getElementById('y1Val').textContent=lastAutoCuts.yCuts[1];
-    document.getElementById('y2Val').textContent=lastAutoCuts.yCuts[2];
+    manualCuts={x1:lastAutoCuts.xCuts[1],x2:lastAutoCuts.xCuts[2],y1:lastAutoCuts.yCuts[1],y2:lastAutoCuts.yCuts[2]};
   }
   previewGridBounds();
 };
