@@ -54,16 +54,21 @@ window.generateStoryboard=async()=>{
     const prompt=`你是电影分镜导演。根据以下剧情生成连续9镜头，格式严格为：\n镜头01：...\n...\n镜头09：...\n要求：同一场景同一时间轴，动作与情绪连续推进，人物外观服装一致。\n剧情：${script}\n风格参考：${styleHint}`;
     const content=await chatCompletion({baseUrl,apiKey,model:chatModel,messages:[{role:'user',content:prompt}]});
     document.getElementById('storyboard').value=content;
+    const carry=document.getElementById('storyboardCarry');
+    if(carry) carry.value=content;
     switchStep(2);
   }catch(e){alert(e.message||String(e));}
 };
 
 window.buildGridPrompt=()=>{
   const summary=document.getElementById('summary').value.trim();
-  const shots=parseShots(document.getElementById('storyboard').value);
-  if(shots.length!==9) return alert('请先准备9条镜头');
+  const shotText=(document.getElementById('storyboardCarry')?.value || document.getElementById('storyboard').value || '').trim();
+  const shots=parseShots(shotText);
+  if(shots.length!==9) return alert('请先准备9条镜头（可在步骤2顶部手动修改）');
   const txt=`根据${summary}，生成一张具有凝聚力的3×3网格图像，包含同一环境中的9个不同摄像机镜头，严格保持人物/物体、服装和光线一致性，8K分辨率，16:9画幅。\n${shots.map((s,i)=>`镜头${String(i+1).padStart(2,'0')}：${s}`).join('\n')}\n最终必须是九宫格，每个格子比例为16:9。`;
   document.getElementById('gridPrompt').value=txt;
+  const carry=document.getElementById('gridPromptCarry');
+  if(carry) carry.value=txt;
   switchStep(3);
 };
 
@@ -239,7 +244,7 @@ window.splitGrid=async()=>{
 window.generateImage=async()=>{
   try{
     const {baseUrl,apiKey,imageProvider,imageModel}=getCfg();
-    const prompt=document.getElementById('imagePrompt').value.trim() || document.getElementById('gridPrompt').value.trim();
+    const prompt=document.getElementById('imagePrompt').value.trim() || document.getElementById('gridPromptCarry')?.value.trim() || document.getElementById('gridPrompt').value.trim();
     if(!baseUrl||!apiKey||!imageModel) throw new Error('请先配置 BaseURL/APIKey/ImageModel');
     if(!prompt) throw new Error('请先填写图片提示词');
 
@@ -269,6 +274,8 @@ window.generateImage=async()=>{
 
     if(!imageUrl) throw new Error('未从响应中解析到图片，请检查模型是否支持图片输出');
     document.getElementById('imageOut').innerHTML=`<img src="${imageUrl}" alt="generated"/>`;
+    const carry=document.getElementById('generatedGridCarry');
+    if(carry) carry.innerHTML=`<img src="${imageUrl}" alt="generated"/>`;
     switchStep(4);
   }catch(e){alert(e.message||String(e));}
 };
@@ -314,6 +321,23 @@ function stepClasses(step, active){
   return active? map[step][0] : `bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300 ${map[step][1]}`;
 }
 
+function refreshCarryData(){
+  const storyboard=document.getElementById('storyboard')?.value?.trim()||'';
+  const gridPrompt=document.getElementById('gridPrompt')?.value?.trim()||'';
+  const imageOut=document.getElementById('imageOut')?.innerHTML||'';
+
+  const storyboardCarry=document.getElementById('storyboardCarry');
+  if(storyboardCarry && storyboardCarry.value.trim()==='') storyboardCarry.value=storyboard;
+
+  const gridPromptCarry=document.getElementById('gridPromptCarry');
+  if(gridPromptCarry && gridPromptCarry.value.trim()==='') gridPromptCarry.value=gridPrompt;
+
+  const generatedGridCarry=document.getElementById('generatedGridCarry');
+  if(generatedGridCarry){
+    generatedGridCarry.innerHTML=imageOut||'';
+  }
+}
+
 function switchStep(step){
   currentStep=step;
   document.querySelectorAll('.step-panel').forEach(el=>{
@@ -324,6 +348,7 @@ function switchStep(step){
     const s=Number(btn.dataset.step);
     btn.className=`step-btn rounded-xl px-3 py-2 font-medium text-left transition ${stepClasses(s,s===step)}`;
   });
+  refreshCarryData();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
