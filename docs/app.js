@@ -193,8 +193,9 @@ function getActiveCuts(img){
 
 function drawGridPreview(img,cuts){
   const {xCuts,yCuts,detected,manual}=cuts;
-  const maxW=900;
-  const scale=Math.min(1,maxW/img.width);
+  const box=document.getElementById('gridPreview');
+  const containerW=Math.max(320, box?.clientWidth||img.width);
+  const scale=Math.min(1,containerW/img.width);
   const vw=Math.round(img.width*scale);
   const vh=Math.round(img.height*scale);
 
@@ -202,6 +203,8 @@ function drawGridPreview(img,cuts){
     ? previewState.canvas
     : document.createElement('canvas');
   cv.width=vw; cv.height=vh;
+  cv.style.width='100%';
+  cv.style.height='auto';
   const ctx=cv.getContext('2d');
   ctx.drawImage(img,0,0,vw,vh);
 
@@ -220,7 +223,6 @@ function drawGridPreview(img,cuts){
   ctx.font='14px Arial';
   ctx.fillText(manual?'手动微调中':(detected?'智能边界识别':'均分回退（识别不稳定）'),14,27);
 
-  const box=document.getElementById('gridPreview');
   if(!previewState?.canvas){
     box.innerHTML='';
     box.appendChild(cv);
