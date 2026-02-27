@@ -2,7 +2,7 @@ const LS_KEY='ai_video_studio_cfg_v1';
 let lastAutoCuts=null;
 let manualCuts=null; // {x1,x2,y1,y2}
 let nudgeStep=1;
-let previewState=null; // {img,scale,canvas,dragging,regions}
+let previewState=null; // {img,scale,canvas,dragging}
 
 function loadCfg(){
   const raw=localStorage.getItem(LS_KEY);
@@ -217,41 +217,6 @@ function drawGridPreview(img,cuts){
     ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(vw,y); ctx.stroke();
   }
 
-  const regions=[];
-  if(manual){
-    const r=10, gap=16;
-    const drawHandle=(key,x,y,isVertical)=>{
-      // 把手
-      ctx.beginPath(); ctx.fillStyle='#0ea5e9'; ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#fff'; ctx.font='11px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('≡',x,y+0.5);
-      regions.push({type:'drag',key,x,y,r:r+4});
-
-      // - 按钮
-      const mx=isVertical?x-gap-r:y;
-      const my=isVertical?y:x-gap-r;
-      const minusX=isVertical?mx:x;
-      const minusY=isVertical?my:y;
-      ctx.beginPath(); ctx.fillStyle='#111827'; ctx.arc(minusX,minusY,8,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#fff'; ctx.fillText('-',minusX,minusY+0.5);
-      regions.push({type:'nudge',key,dir:-1,x:minusX,y:minusY,r:10});
-
-      // + 按钮
-      const px=isVertical?x+gap+r:y;
-      const py=isVertical?y:x+gap+r;
-      const plusX=isVertical?px:x;
-      const plusY=isVertical?py:y;
-      ctx.beginPath(); ctx.fillStyle='#111827'; ctx.arc(plusX,plusY,8,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#fff'; ctx.fillText('+',plusX,plusY+0.5);
-      regions.push({type:'nudge',key,dir:1,x:plusX,y:plusY,r:10});
-    };
-
-    drawHandle('x1',Math.round(xCuts[1]*scale),26,true);
-    drawHandle('x2',Math.round(xCuts[2]*scale),26,true);
-    drawHandle('y1',26,Math.round(yCuts[1]*scale),false);
-    drawHandle('y2',26,Math.round(yCuts[2]*scale),false);
-  }
-
   ctx.fillStyle='rgba(0,0,0,0.65)';
   ctx.fillRect(8,8,250,28);
   ctx.fillStyle='#fff';
@@ -264,7 +229,8 @@ function drawGridPreview(img,cuts){
     box.innerHTML='';
     box.appendChild(cv);
   }
-  previewState={...(previewState||{}),img,scale,canvas:cv,regions};
+  previewState={...(previewState||{}),img,scale,canvas:cv};
+  if(manual) renderLineHandles();
 }
 
 function clampManualCuts(img,changedKey){
@@ -290,12 +256,80 @@ function updateManualControlUI(_img){
   // 底部滑块控件已移除，当前只保留预览图把手操作
 }
 
+function nudgeInline(key,dir){
+  const img=previewState?.img;
+  if(!img||!manualCuts) return;
+  manualCuts[key]+=dir*nudgeStep;
+  clampManualCuts(img,key);
+  drawGridPreview(img,getActiveCuts(img));
+}
+
+function renderLineHandles(){
+  const box=document.getElementById('gridPreview');
+  const img=previewState?.img;
+  if(!box||!img||!manualCuts) return;
+
+  box.querySelectorAll('.line-handle').forEach(el=>el.remove());
+  const s=previewState.scale;
+
+  const mk=(key,isVertical)=>{
+    const pos=isVertical?manualCuts[key]*s:manualCuts[key]*s;
+    const wrap=document.createElement('div');
+    wrap.className='line-handle absolute z-20 flex items-center gap-1 bg-white/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 rounded-md px-1 py-0.5 text-xs';
+
+    const minus=document.createElement('button');
+    minus.type='button'; minus.textContent='-';
+    minus.className='px-1 rounded bg-slate-200 dark:bg-slate-700';
+    minus.onclick=()=>nudgeInline(key,-1);
+
+    const grip=document.createElement('button');
+    grip.type='button'; grip.textContent='≡';
+    grip.className='px-1 rounded bg-sky-500 text-white cursor-grab';
+
+    const plus=document.createElement('button');
+    plus.type='button'; plus.textContent='+';
+    plus.className='px-1 rounded bg-slate-200 dark:bg-slate-700';
+    plus.onclick=()=>nudgeInline(key,1);
+
+    wrap.append(minus,grip,plus);
+
+    if(isVertical){
+      wrap.style.left=`${Math.max(6,Math.min(pos-28,box.clientWidth-74))}px`;
+      wrap.style.top='8px';
+    }else{
+      wrap.style.left='8px';
+      wrap.style.top=`${Math.max(40,Math.min(pos-10,box.clientHeight-28))}px`;
+    }
+
+    // 拖拽把手
+    grip.onpointerdown=(e)=>{
+      e.preventDefault();
+      grip.setPointerCapture(e.pointerId);
+      previewState.dragging={key,isVertical};
+    };
+    grip.onpointermove=(e)=>{
+      if(!previewState?.dragging || previewState.dragging.key!==key) return;
+      const rect=box.getBoundingClientRect();
+      const ox=e.clientX-rect.left;
+      const oy=e.clientY-rect.top;
+      if(isVertical) manualCuts[key]=Math.round(ox/s);
+      else manualCuts[key]=Math.round(oy/s);
+      clampManualCuts(img,key);
+      drawGridPreview(img,getActiveCuts(img));
+    };
+    grip.onpointerup=(e)=>{ try{grip.releasePointerCapture(e.pointerId);}catch{} previewState.dragging=null; };
+
+    box.appendChild(wrap);
+  };
+
+  mk('x1',true); mk('x2',true); mk('y1',false); mk('y2',false);
+}
+
 function bindPreviewDrag(){
+  // 仅保留直接拖线，按钮/把手逻辑在 renderLineHandles 内
   const cv=previewState?.canvas;
   const img=previewState?.img;
-  if(!cv||!img) return;
-
-  const findRegion=(ox,oy)=> (previewState?.regions||[]).find(r=>((ox-r.x)**2+(oy-r.y)**2)<=r.r*r.r);
+  if(!cv||!img||!manualCuts) return;
   const findLine=(ox,oy)=>{
     const x=ox/previewState.scale;
     const y=oy/previewState.scale;
@@ -306,41 +340,17 @@ function bindPreviewDrag(){
     if(Math.abs(y-manualCuts.y2)<=tol) return 'y2';
     return null;
   };
-
-  cv.onpointerdown=(e)=>{
-    if(!manualCuts) return;
-    const rect=cv.getBoundingClientRect();
-    const ox=e.clientX-rect.left, oy=e.clientY-rect.top;
-    const region=findRegion(ox,oy);
-    if(region?.type==='nudge'){
-      manualCuts[region.key]+=region.dir*nudgeStep;
-      clampManualCuts(img,region.key);
-      drawGridPreview(img,getActiveCuts(img));
-      bindPreviewDrag();
-      return;
-    }
-    if(region?.type==='drag'){
-      previewState.dragging=region.key;
-      cv.setPointerCapture(e.pointerId);
-      return;
-    }
-    const line=findLine(ox,oy);
-    if(line){ previewState.dragging=line; cv.setPointerCapture(e.pointerId); }
-  };
-
+  cv.onpointerdown=(e)=>{ const r=cv.getBoundingClientRect(); const k=findLine(e.clientX-r.left,e.clientY-r.top); if(k){previewState.dragging={key:k,isVertical:k.startsWith('x')}; cv.setPointerCapture(e.pointerId);} };
   cv.onpointermove=(e)=>{
-    const rect=cv.getBoundingClientRect();
-    const ox=e.clientX-rect.left, oy=e.clientY-rect.top;
-    const region=findRegion(ox,oy);
-    const line=findLine(ox,oy);
-    cv.style.cursor=previewState?.dragging ? 'grabbing' : (region||line?'grab':'default');
+    const r=cv.getBoundingClientRect();
+    const ox=e.clientX-r.left, oy=e.clientY-r.top;
+    const k=findLine(ox,oy);
+    cv.style.cursor=previewState?.dragging?'grabbing':(k?'grab':'default');
     if(!previewState?.dragging) return;
-    const key=previewState.dragging;
-    if(key.startsWith('x')) manualCuts[key]=Math.round(ox/previewState.scale);
-    else manualCuts[key]=Math.round(oy/previewState.scale);
+    const key=previewState.dragging.key;
+    if(key.startsWith('x')) manualCuts[key]=Math.round(ox/previewState.scale); else manualCuts[key]=Math.round(oy/previewState.scale);
     clampManualCuts(img,key);
     drawGridPreview(img,getActiveCuts(img));
-    bindPreviewDrag();
   };
   cv.onpointerup=(e)=>{ previewState.dragging=null; try{cv.releasePointerCapture(e.pointerId);}catch{} };
   cv.onpointercancel=()=>{ previewState.dragging=null; };
