@@ -183,9 +183,9 @@ async function loadGridImage(){
 function getActiveCuts(img){
   const auto=lastAutoCuts || detectGridCuts(img);
   if(!lastAutoCuts) lastAutoCuts=auto;
-  if(manualCuts){
-    const xCuts=[0,manualCuts.x1,manualCuts.x2,img.width];
-    const yCuts=[0,manualCuts.y1,manualCuts.y2,img.height];
+  if(manualCuts && [manualCuts.x1,manualCuts.x2,manualCuts.y1,manualCuts.y2].every(Number.isFinite)){
+    const xCuts=[0,Math.round(manualCuts.x1),Math.round(manualCuts.x2),img.width];
+    const yCuts=[0,Math.round(manualCuts.y1),Math.round(manualCuts.y2),img.height];
     return {xCuts,yCuts,detected:false,manual:true};
   }
   return {...auto,manual:false};
@@ -304,6 +304,7 @@ function bindPreviewDrag(){
     clampManualCuts(img,key);
     updateManualControlUI(img);
     drawGridPreview(img,getActiveCuts(img));
+    bindPreviewDrag();
   };
   cv.onpointerup=(e)=>{ previewState.dragging=null; try{cv.releasePointerCapture(e.pointerId);}catch{} };
   cv.onpointercancel=()=>{ previewState.dragging=null; };
@@ -323,10 +324,10 @@ function setupManualCutControls(img,xCuts,yCuts){
   clampManualCuts(img,'x2');
   updateManualControlUI(img);
 
-  x1.oninput=()=>{ manualCuts.x1=Number(x1.value); clampManualCuts(img,'x1'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); };
-  x2.oninput=()=>{ manualCuts.x2=Number(x2.value); clampManualCuts(img,'x2'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); };
-  y1.oninput=()=>{ manualCuts.y1=Number(y1.value); clampManualCuts(img,'y1'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); };
-  y2.oninput=()=>{ manualCuts.y2=Number(y2.value); clampManualCuts(img,'y2'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); };
+  x1.oninput=()=>{ manualCuts.x1=Number(x1.value); clampManualCuts(img,'x1'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); bindPreviewDrag(); };
+  x2.oninput=()=>{ manualCuts.x2=Number(x2.value); clampManualCuts(img,'x2'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); bindPreviewDrag(); };
+  y1.oninput=()=>{ manualCuts.y1=Number(y1.value); clampManualCuts(img,'y1'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); bindPreviewDrag(); };
+  y2.oninput=()=>{ manualCuts.y2=Number(y2.value); clampManualCuts(img,'y2'); updateManualControlUI(img); drawGridPreview(img,getActiveCuts(img)); bindPreviewDrag(); };
 
   bindPreviewDrag();
 }
@@ -336,26 +337,20 @@ window.setNudgeStep=(step)=>{ nudgeStep=step; };
 window.nudgeCut=async(key,dir)=>{
   try{
     let img=previewState?.img;
-    // 允许用户不先点“预览”直接用 +/-
     if(!img){
       img=await loadGridImage();
       lastAutoCuts=detectGridCuts(img);
-      if(!manualCuts){
-        manualCuts={x1:lastAutoCuts.xCuts[1],x2:lastAutoCuts.xCuts[2],y1:lastAutoCuts.yCuts[1],y2:lastAutoCuts.yCuts[2]};
-      }
-      drawGridPreview(img,getActiveCuts(img));
-      setupManualCutControls(img,lastAutoCuts.xCuts,lastAutoCuts.yCuts);
     }
-
     if(!manualCuts && lastAutoCuts){
       manualCuts={x1:lastAutoCuts.xCuts[1],x2:lastAutoCuts.xCuts[2],y1:lastAutoCuts.yCuts[1],y2:lastAutoCuts.yCuts[2]};
     }
     if(!manualCuts) return;
 
-    manualCuts[key]+=dir*nudgeStep;
+    manualCuts[key]=Number(manualCuts[key]||0)+dir*nudgeStep;
     clampManualCuts(img,key);
     updateManualControlUI(img);
     drawGridPreview(img,getActiveCuts(img));
+    bindPreviewDrag();
   }catch(e){
     alert(e.message||String(e));
   }
