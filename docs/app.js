@@ -256,13 +256,19 @@ function updateManualControlUI(_img){
   // 底部滑块控件已移除，当前只保留预览图把手操作
 }
 
+function renderManualNow(img){
+  const xCuts=[0,Math.round(manualCuts.x1),Math.round(manualCuts.x2),img.width];
+  const yCuts=[0,Math.round(manualCuts.y1),Math.round(manualCuts.y2),img.height];
+  drawGridPreview(img,{xCuts,yCuts,detected:false,manual:true});
+  bindPreviewDrag();
+}
+
 function nudgeInline(key,dir){
   const img=previewState?.img;
   if(!img||!manualCuts) return;
   manualCuts[key]+=dir*nudgeStep;
   clampManualCuts(img,key);
-  drawGridPreview(img,getActiveCuts(img));
-  bindPreviewDrag();
+  renderManualNow(img);
 }
 
 function renderLineHandles(){
@@ -315,8 +321,7 @@ function renderLineHandles(){
         if(isVertical) manualCuts[key]=Math.round(ox/s);
         else manualCuts[key]=Math.round(oy/s);
         clampManualCuts(img,key);
-        drawGridPreview(img,getActiveCuts(img));
-        bindPreviewDrag();
+        renderManualNow(img);
       };
 
       const onUp=()=>{
