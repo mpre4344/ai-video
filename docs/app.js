@@ -282,20 +282,20 @@ function renderLineHandles(){
   const mk=(key,isVertical)=>{
     const pos=isVertical?manualCuts[key]*s:manualCuts[key]*s;
     const wrap=document.createElement('div');
-    wrap.className='line-handle absolute z-20 flex items-center gap-1 bg-white/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 rounded-md px-1 py-0.5 text-xs';
+    wrap.className='line-handle absolute z-20 flex items-center gap-1.5 bg-white/95 dark:bg-slate-800/95 border border-slate-300 dark:border-slate-600 rounded-lg px-1.5 py-1 text-xs shadow-sm backdrop-blur';
 
     const minus=document.createElement('button');
     minus.type='button'; minus.textContent='-';
-    minus.className='px-1 rounded bg-slate-200 dark:bg-slate-700';
+    minus.className='h-6 w-6 rounded-md bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-600';
     minus.onclick=()=>nudgeInline(key,-1);
 
     const grip=document.createElement('button');
     grip.type='button'; grip.textContent='≡';
-    grip.className='px-1 rounded bg-sky-500 text-white cursor-grab';
+    grip.className='h-6 min-w-8 px-1 rounded-md bg-sky-500 text-white cursor-grab active:cursor-grabbing hover:bg-sky-600';
 
     const plus=document.createElement('button');
     plus.type='button'; plus.textContent='+';
-    plus.className='px-1 rounded bg-slate-200 dark:bg-slate-700';
+    plus.className='h-6 w-6 rounded-md bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-600';
     plus.onclick=()=>nudgeInline(key,1);
 
     wrap.append(minus,grip,plus);
@@ -429,7 +429,9 @@ window.splitGrid=async()=>{
     if(!lastAutoCuts) lastAutoCuts=detectGridCuts(img);
     const {xCuts,yCuts,detected,manual}=getActiveCuts(img);
     const wrap=document.getElementById('pieces');
+    const title=document.getElementById('piecesTitle');
     wrap.innerHTML='';
+    if(title) title.classList.remove('hidden');
 
     for(let r=0;r<3;r++) for(let c=0;c<3;c++){
       const sx=xCuts[c], sy=yCuts[r];
