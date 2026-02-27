@@ -29,18 +29,18 @@
 
     <div class="max-w-7xl mx-auto px-4 py-6">
       <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-2 text-sm">
-          <div class="rounded-xl bg-indigo-50 text-indigo-700 px-3 py-2 font-medium dark:bg-indigo-500/20 dark:text-indigo-300">① 剧本分镜</div>
-          <div class="rounded-xl bg-violet-50 text-violet-700 px-3 py-2 font-medium dark:bg-violet-500/20 dark:text-violet-300">② 九宫格 Prompt</div>
-          <div class="rounded-xl bg-emerald-50 text-emerald-700 px-3 py-2 font-medium dark:bg-emerald-500/20 dark:text-emerald-300">③ 图片生成</div>
-          <div class="rounded-xl bg-cyan-50 text-cyan-700 px-3 py-2 font-medium dark:bg-cyan-500/20 dark:text-cyan-300">④ 智能切图</div>
-          <div class="rounded-xl bg-rose-50 text-rose-700 px-3 py-2 font-medium dark:bg-rose-500/20 dark:text-rose-300">⑤ 视频生成</div>
+        <div id="stepper" class="grid grid-cols-1 md:grid-cols-5 gap-2 text-sm">
+          <button data-step="1" class="step-btn rounded-xl px-3 py-2 font-medium text-left transition">① 剧本分镜</button>
+          <button data-step="2" class="step-btn rounded-xl px-3 py-2 font-medium text-left transition">② 九宫格 Prompt</button>
+          <button data-step="3" class="step-btn rounded-xl px-3 py-2 font-medium text-left transition">③ 图片生成</button>
+          <button data-step="4" class="step-btn rounded-xl px-3 py-2 font-medium text-left transition">④ 智能切图</button>
+          <button data-step="5" class="step-btn rounded-xl px-3 py-2 font-medium text-left transition">⑤ 视频生成</button>
         </div>
       </div>
 
       <main class="mt-5 grid grid-cols-1 xl:grid-cols-12 gap-5">
         <section class="xl:col-span-7 space-y-5">
-          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <article data-panel="1" class="step-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 class="text-base font-semibold">1) 剧本生成九镜头分镜</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">输入剧情和风格，自动输出镜头01~09。</p>
             <textarea id="script" rows="6" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950" placeholder="输入剧情概述"></textarea>
@@ -49,14 +49,14 @@
             <textarea id="storyboard" rows="12" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950" placeholder="镜头01：... 到 镜头09：..."></textarea>
           </article>
 
-          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <article data-panel="2" class="step-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 hidden">
             <h2 class="text-base font-semibold">2) 九宫格 Prompt 组装</h2>
             <input id="summary" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-950" placeholder="剧情概述或画面主题"/>
             <button onclick="buildGridPrompt()" class="mt-3 w-full rounded-xl bg-violet-600 py-3 font-medium text-white hover:bg-violet-500">生成九宫格 Prompt</button>
             <textarea id="gridPrompt" rows="10" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-950"></textarea>
           </article>
 
-          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <article data-panel="3" class="step-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 hidden">
             <h2 class="text-base font-semibold">3) 生成九宫格图片</h2>
             <textarea id="imagePrompt" rows="6" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950" placeholder="可粘贴上面的九宫格 Prompt"></textarea>
             <button onclick="generateImage()" class="mt-3 w-full rounded-xl bg-emerald-600 py-3 font-medium text-white hover:bg-emerald-500">生成图片</button>
@@ -65,7 +65,7 @@
         </section>
 
         <section class="xl:col-span-5 space-y-5">
-          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <article data-panel="4" class="step-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 hidden">
             <h2 class="text-base font-semibold">4) 九宫格切图</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">智能边界识别 + 预览线校验。</p>
             <input type="file" id="gridImage" accept="image/*" class="mt-3 w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-white dark:file:bg-slate-700"/>
@@ -77,7 +77,7 @@
             <div id="pieces" class="mt-4 grid grid-cols-3 gap-2"></div>
           </article>
 
-          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <article data-panel="5" class="step-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 hidden">
             <h2 class="text-base font-semibold">5) 生成视频请求</h2>
             <textarea id="roleCard" rows="3" class="mt-3 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-slate-700 dark:bg-slate-950" placeholder="@角色卡（可选）"></textarea>
             <button onclick="generateVideo()" class="mt-3 w-full rounded-xl bg-rose-600 py-3 font-medium text-white hover:bg-rose-500">调用视频生成接口</button>

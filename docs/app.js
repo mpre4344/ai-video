@@ -54,6 +54,7 @@ window.generateStoryboard=async()=>{
     const prompt=`你是电影分镜导演。根据以下剧情生成连续9镜头，格式严格为：\n镜头01：...\n...\n镜头09：...\n要求：同一场景同一时间轴，动作与情绪连续推进，人物外观服装一致。\n剧情：${script}\n风格参考：${styleHint}`;
     const content=await chatCompletion({baseUrl,apiKey,model:chatModel,messages:[{role:'user',content:prompt}]});
     document.getElementById('storyboard').value=content;
+    switchStep(2);
   }catch(e){alert(e.message||String(e));}
 };
 
@@ -63,6 +64,7 @@ window.buildGridPrompt=()=>{
   if(shots.length!==9) return alert('请先准备9条镜头');
   const txt=`根据${summary}，生成一张具有凝聚力的3×3网格图像，包含同一环境中的9个不同摄像机镜头，严格保持人物/物体、服装和光线一致性，8K分辨率，16:9画幅。\n${shots.map((s,i)=>`镜头${String(i+1).padStart(2,'0')}：${s}`).join('\n')}\n最终必须是九宫格，每个格子比例为16:9。`;
   document.getElementById('gridPrompt').value=txt;
+  switchStep(3);
 };
 
 function smooth1d(arr, radius=4){
@@ -230,6 +232,7 @@ window.splitGrid=async()=>{
       a.appendChild(im);
       wrap.appendChild(a);
     }
+    switchStep(5);
   }catch(e){ alert(e.message||String(e)); }
 };
 
@@ -266,6 +269,7 @@ window.generateImage=async()=>{
 
     if(!imageUrl) throw new Error('未从响应中解析到图片，请检查模型是否支持图片输出');
     document.getElementById('imageOut').innerHTML=`<img src="${imageUrl}" alt="generated"/>`;
+    switchStep(4);
   }catch(e){alert(e.message||String(e));}
 };
 
@@ -297,6 +301,38 @@ window.buildCurl=()=>{
 };
 
 const THEME_KEY='ai_video_studio_theme_v1';
+let currentStep=1;
+
+function stepClasses(step, active){
+  const map={
+    1:['bg-indigo-50 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300','hover:bg-indigo-100 dark:hover:bg-indigo-500/30'],
+    2:['bg-violet-50 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300','hover:bg-violet-100 dark:hover:bg-violet-500/30'],
+    3:['bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300','hover:bg-emerald-100 dark:hover:bg-emerald-500/30'],
+    4:['bg-cyan-50 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300','hover:bg-cyan-100 dark:hover:bg-cyan-500/30'],
+    5:['bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300','hover:bg-rose-100 dark:hover:bg-rose-500/30'],
+  };
+  return active? map[step][0] : `bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300 ${map[step][1]}`;
+}
+
+function switchStep(step){
+  currentStep=step;
+  document.querySelectorAll('.step-panel').forEach(el=>{
+    const show=Number(el.dataset.panel)===step;
+    el.classList.toggle('hidden',!show);
+  });
+  document.querySelectorAll('.step-btn').forEach(btn=>{
+    const s=Number(btn.dataset.step);
+    btn.className=`step-btn rounded-xl px-3 py-2 font-medium text-left transition ${stepClasses(s,s===step)}`;
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function initStepper(){
+  document.querySelectorAll('.step-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>switchStep(Number(btn.dataset.step)));
+  });
+  switchStep(1);
+}
 
 function applyTheme(theme){
   const isDark = theme==='dark';
@@ -329,3 +365,4 @@ document.addEventListener('keydown',(e)=>{
 })();
 
 loadCfg();
+initStepper();
