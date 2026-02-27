@@ -333,17 +333,32 @@ function setupManualCutControls(img,xCuts,yCuts){
 
 window.setNudgeStep=(step)=>{ nudgeStep=step; };
 
-window.nudgeCut=(key,dir)=>{
-  const img=previewState?.img;
-  if(!img) return;
-  if(!manualCuts && lastAutoCuts){
-    manualCuts={x1:lastAutoCuts.xCuts[1],x2:lastAutoCuts.xCuts[2],y1:lastAutoCuts.yCuts[1],y2:lastAutoCuts.yCuts[2]};
+window.nudgeCut=async(key,dir)=>{
+  try{
+    let img=previewState?.img;
+    // 允许用户不先点“预览”直接用 +/-
+    if(!img){
+      img=await loadGridImage();
+      lastAutoCuts=detectGridCuts(img);
+      if(!manualCuts){
+        manualCuts={x1:lastAutoCuts.xCuts[1],x2:lastAutoCuts.xCuts[2],y1:lastAutoCuts.yCuts[1],y2:lastAutoCuts.yCuts[2]};
+      }
+      drawGridPreview(img,getActiveCuts(img));
+      setupManualCutControls(img,lastAutoCuts.xCuts,lastAutoCuts.yCuts);
+    }
+
+    if(!manualCuts && lastAutoCuts){
+      manualCuts={x1:lastAutoCuts.xCuts[1],x2:lastAutoCuts.xCuts[2],y1:lastAutoCuts.yCuts[1],y2:lastAutoCuts.yCuts[2]};
+    }
+    if(!manualCuts) return;
+
+    manualCuts[key]+=dir*nudgeStep;
+    clampManualCuts(img,key);
+    updateManualControlUI(img);
+    drawGridPreview(img,getActiveCuts(img));
+  }catch(e){
+    alert(e.message||String(e));
   }
-  if(!manualCuts) return;
-  manualCuts[key]+=dir*nudgeStep;
-  clampManualCuts(img,key);
-  updateManualControlUI(img);
-  drawGridPreview(img,getActiveCuts(img));
 };
 
 window.resetManualCuts=()=>{
