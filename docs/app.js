@@ -296,4 +296,16 @@ window.buildCurl=()=>{
   document.getElementById('curlOut').textContent=curl;
 };
 
+window.openSettings=()=>{
+  document.getElementById('settingsModal')?.classList.remove('hidden');
+};
+
+window.closeSettings=()=>{
+  document.getElementById('settingsModal')?.classList.add('hidden');
+};
+
+document.addEventListener('keydown',(e)=>{
+  if(e.key==='Escape') closeSettings();
+});
+
 loadCfg();
